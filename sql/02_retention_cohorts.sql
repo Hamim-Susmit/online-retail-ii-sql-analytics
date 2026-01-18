@@ -1,21 +1,38 @@
+-- =============================================================
+-- Cohort Retention Analysis
+-- Logic:
+--   - Cohort month = first purchase month per customer
+--   - months_since = month difference between activity and cohort
+--   - Use distinct customer-month activity for performance
+--   - Guard against negative months_since from bad data
+-- =============================================================
+
 -- Query 1: Cohort retention counts by months since first purchase
-WITH customer_cohorts AS (
+WITH customer_months AS (
+    SELECT DISTINCT
+        customer_id,
+        invoice_month
+    FROM retail_clean
+), customer_cohorts AS (
     SELECT
         customer_id,
         MIN(invoice_month) AS cohort_month
-    FROM retail_clean
+    FROM customer_months
     GROUP BY customer_id
 ), cohort_activity AS (
     SELECT
-        rc.customer_id,
+        cm.customer_id,
         cc.cohort_month,
-        rc.invoice_month AS activity_month,
-        (EXTRACT(YEAR FROM rc.invoice_month) - EXTRACT(YEAR FROM cc.cohort_month)) * 12
-        + (EXTRACT(MONTH FROM rc.invoice_month) - EXTRACT(MONTH FROM cc.cohort_month))
+        cm.invoice_month AS activity_month,
+        (EXTRACT(YEAR FROM cm.invoice_month) - EXTRACT(YEAR FROM cc.cohort_month)) * 12
+        + (EXTRACT(MONTH FROM cm.invoice_month) - EXTRACT(MONTH FROM cc.cohort_month))
             AS months_since
-    FROM retail_clean rc
+    FROM customer_months cm
     INNER JOIN customer_cohorts cc
-        ON rc.customer_id = cc.customer_id
+        ON cm.customer_id = cc.customer_id
+    WHERE (EXTRACT(YEAR FROM cm.invoice_month) - EXTRACT(YEAR FROM cc.cohort_month)) * 12
+        + (EXTRACT(MONTH FROM cm.invoice_month) - EXTRACT(MONTH FROM cc.cohort_month))
+            >= 0
 )
 SELECT
     cohort_month,
@@ -26,11 +43,16 @@ GROUP BY cohort_month, months_since
 ORDER BY cohort_month, months_since;
 
 -- Query 2: Cohort retention rates
-WITH customer_cohorts AS (
+WITH customer_months AS (
+    SELECT DISTINCT
+        customer_id,
+        invoice_month
+    FROM retail_clean
+), customer_cohorts AS (
     SELECT
         customer_id,
         MIN(invoice_month) AS cohort_month
-    FROM retail_clean
+    FROM customer_months
     GROUP BY customer_id
 ), cohort_sizes AS (
     SELECT
@@ -40,15 +62,18 @@ WITH customer_cohorts AS (
     GROUP BY cohort_month
 ), cohort_activity AS (
     SELECT
-        rc.customer_id,
+        cm.customer_id,
         cc.cohort_month,
-        rc.invoice_month AS activity_month,
-        (EXTRACT(YEAR FROM rc.invoice_month) - EXTRACT(YEAR FROM cc.cohort_month)) * 12
-        + (EXTRACT(MONTH FROM rc.invoice_month) - EXTRACT(MONTH FROM cc.cohort_month))
+        cm.invoice_month AS activity_month,
+        (EXTRACT(YEAR FROM cm.invoice_month) - EXTRACT(YEAR FROM cc.cohort_month)) * 12
+        + (EXTRACT(MONTH FROM cm.invoice_month) - EXTRACT(MONTH FROM cc.cohort_month))
             AS months_since
-    FROM retail_clean rc
+    FROM customer_months cm
     INNER JOIN customer_cohorts cc
-        ON rc.customer_id = cc.customer_id
+        ON cm.customer_id = cc.customer_id
+    WHERE (EXTRACT(YEAR FROM cm.invoice_month) - EXTRACT(YEAR FROM cc.cohort_month)) * 12
+        + (EXTRACT(MONTH FROM cm.invoice_month) - EXTRACT(MONTH FROM cc.cohort_month))
+            >= 0
 ), retained AS (
     SELECT
         cohort_month,
@@ -69,11 +94,16 @@ INNER JOIN cohort_sizes cs
 ORDER BY r.cohort_month, r.months_since;
 
 -- Query 3: Cohort retention grid (months 0-6)
-WITH customer_cohorts AS (
+WITH customer_months AS (
+    SELECT DISTINCT
+        customer_id,
+        invoice_month
+    FROM retail_clean
+), customer_cohorts AS (
     SELECT
         customer_id,
         MIN(invoice_month) AS cohort_month
-    FROM retail_clean
+    FROM customer_months
     GROUP BY customer_id
 ), cohort_sizes AS (
     SELECT
@@ -83,15 +113,18 @@ WITH customer_cohorts AS (
     GROUP BY cohort_month
 ), cohort_activity AS (
     SELECT
-        rc.customer_id,
+        cm.customer_id,
         cc.cohort_month,
-        rc.invoice_month AS activity_month,
-        (EXTRACT(YEAR FROM rc.invoice_month) - EXTRACT(YEAR FROM cc.cohort_month)) * 12
-        + (EXTRACT(MONTH FROM rc.invoice_month) - EXTRACT(MONTH FROM cc.cohort_month))
+        cm.invoice_month AS activity_month,
+        (EXTRACT(YEAR FROM cm.invoice_month) - EXTRACT(YEAR FROM cc.cohort_month)) * 12
+        + (EXTRACT(MONTH FROM cm.invoice_month) - EXTRACT(MONTH FROM cc.cohort_month))
             AS months_since
-    FROM retail_clean rc
+    FROM customer_months cm
     INNER JOIN customer_cohorts cc
-        ON rc.customer_id = cc.customer_id
+        ON cm.customer_id = cc.customer_id
+    WHERE (EXTRACT(YEAR FROM cm.invoice_month) - EXTRACT(YEAR FROM cc.cohort_month)) * 12
+        + (EXTRACT(MONTH FROM cm.invoice_month) - EXTRACT(MONTH FROM cc.cohort_month))
+            >= 0
 ), retained AS (
     SELECT
         cohort_month,
@@ -110,13 +143,13 @@ WITH customer_cohorts AS (
 )
 SELECT
     cohort_month,
-    MAX(CASE WHEN months_since = 0 THEN retention_rate END) AS m0,
-    MAX(CASE WHEN months_since = 1 THEN retention_rate END) AS m1,
-    MAX(CASE WHEN months_since = 2 THEN retention_rate END) AS m2,
-    MAX(CASE WHEN months_since = 3 THEN retention_rate END) AS m3,
-    MAX(CASE WHEN months_since = 4 THEN retention_rate END) AS m4,
-    MAX(CASE WHEN months_since = 5 THEN retention_rate END) AS m5,
-    MAX(CASE WHEN months_since = 6 THEN retention_rate END) AS m6
+    COALESCE(MAX(CASE WHEN months_since = 0 THEN retention_rate END), 0.0) AS m0,
+    COALESCE(MAX(CASE WHEN months_since = 1 THEN retention_rate END), 0.0) AS m1,
+    COALESCE(MAX(CASE WHEN months_since = 2 THEN retention_rate END), 0.0) AS m2,
+    COALESCE(MAX(CASE WHEN months_since = 3 THEN retention_rate END), 0.0) AS m3,
+    COALESCE(MAX(CASE WHEN months_since = 4 THEN retention_rate END), 0.0) AS m4,
+    COALESCE(MAX(CASE WHEN months_since = 5 THEN retention_rate END), 0.0) AS m5,
+    COALESCE(MAX(CASE WHEN months_since = 6 THEN retention_rate END), 0.0) AS m6
 FROM retention_rates
 GROUP BY cohort_month
 ORDER BY cohort_month;
