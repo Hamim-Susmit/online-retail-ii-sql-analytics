@@ -35,6 +35,8 @@ COLUMN_ALIASES: Dict[str, str] = {
     "stock_code": "stock_code",
     "unitprice": "unit_price",
     "unit_price": "unit_price",
+    "price": "unit_price",
+
 }
 
 
@@ -141,7 +143,7 @@ def main() -> None:
     df = load_dataframe(data_path)
 
     try:
-        with psycopg2.connect(db_url, sslmode="require") as conn:
+        with psycopg2.connect(db_url) as conn:
             with conn.cursor() as cursor:
                 ensure_table(cursor, table_name)
                 before_count = count_rows(cursor, table_name)
