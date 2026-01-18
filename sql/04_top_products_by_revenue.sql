@@ -1,11 +1,18 @@
+-- =============================================================
+-- Top Products by Revenue
+-- Note: MAX(description) keeps a stable label when descriptions vary over time.
+-- =============================================================
+
 -- Query 1: Top 20 products overall by revenue
 SELECT
     stock_code,
     MAX(description) AS description,
     SUM(revenue) AS total_revenue,
     SUM(quantity) AS total_units,
-    COUNT(DISTINCT invoice) AS orders
+    COUNT(DISTINCT invoice) AS orders,
+    COUNT(DISTINCT customer_id) AS unique_customers
 FROM retail_clean
+WHERE COALESCE(TRIM(description), '') <> ''
 GROUP BY stock_code
 ORDER BY total_revenue DESC
 LIMIT 20;
@@ -16,8 +23,10 @@ WITH product_monthly AS (
         invoice_month AS month,
         stock_code,
         MAX(description) AS description,
-        SUM(revenue) AS total_revenue
+        SUM(revenue) AS total_revenue,
+        COUNT(DISTINCT customer_id) AS unique_customers
     FROM retail_clean
+    WHERE COALESCE(TRIM(description), '') <> ''
     GROUP BY invoice_month, stock_code
 ), ranked AS (
     SELECT
@@ -25,6 +34,7 @@ WITH product_monthly AS (
         stock_code,
         description,
         total_revenue,
+        unique_customers,
         RANK() OVER (PARTITION BY month ORDER BY total_revenue DESC) AS revenue_rank
     FROM product_monthly
 )
@@ -33,6 +43,7 @@ SELECT
     stock_code,
     description,
     total_revenue,
+    unique_customers,
     revenue_rank
 FROM ranked
 WHERE revenue_rank <= 20

@@ -1,4 +1,16 @@
--- Create cleaned analytics view for Online Retail II
+-- =============================================================
+-- Retail Clean View
+-- Purpose: Standardize Online Retail II transactions for analytics.
+-- Filters:
+--   - customer_id IS NOT NULL
+--   - positive quantity and unit_price
+--   - exclude cancellations by trimming invoice and removing 'C%'
+-- Derived fields:
+--   - invoice_day (date)
+--   - invoice_month (month bucket)
+--   - revenue (quantity * unit_price)
+-- Dependency: retail_transactions (raw ingestion table)
+-- =============================================================
 CREATE OR REPLACE VIEW retail_clean AS
 SELECT
     invoice,
@@ -16,7 +28,7 @@ FROM retail_transactions
 WHERE customer_id IS NOT NULL
   AND quantity > 0
   AND unit_price > 0
-  AND invoice NOT ILIKE 'C%';
+  AND TRIM(invoice) NOT ILIKE 'C%';
 
 -- Validation query
 SELECT

@@ -1,9 +1,19 @@
+-- =============================================================
+-- Revenue by Country
+-- Definitions:
+--   - Orders: distinct invoices
+--   - AOV: total_revenue / orders
+--   - Revenue per customer: total_revenue / unique_customers
+-- =============================================================
+
 -- Query 1: Revenue by country
 SELECT
     country,
     SUM(revenue) AS total_revenue,
     COUNT(DISTINCT customer_id) AS unique_customers,
-    COUNT(DISTINCT invoice) AS orders
+    COUNT(DISTINCT invoice) AS orders,
+    SUM(revenue) / NULLIF(COUNT(DISTINCT invoice), 0) AS aov,
+    SUM(revenue) / NULLIF(COUNT(DISTINCT customer_id), 0) AS revenue_per_customer
 FROM retail_clean
 GROUP BY country
 ORDER BY total_revenue DESC;
